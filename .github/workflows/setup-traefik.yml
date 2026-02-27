@@ -31,4 +31,4 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "docker network create traefik-public 2>/dev/null || true && cd ~/traefik && docker-compose up -d"
+            "docker network create traefik-public 2>/dev/null || true && docker stop wp-blog-nginx-1 2>/dev/null || true && cd ~/traefik && docker-compose up -d"
