@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsAPI } from "../services/api";
@@ -36,7 +36,7 @@ interface ClientDetail {
 // Currency formatter
 const formatCurrency = (
   amount: number | string | undefined,
-  currency = "GBP"
+  currency = "GBP",
 ): string => {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -57,7 +57,7 @@ const getStatusBadgeClass = (status: InvoiceStatus | string): string => {
   return classes[status] || "badge-gray";
 };
 
-export default function ClientDetailPage(): JSX.Element {
+export default function ClientDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -104,7 +104,7 @@ export default function ClientDetailPage(): JSX.Element {
   const handleDelete = (): void => {
     if (
       window.confirm(
-        "Are you sure you want to delete this client? This action cannot be undone."
+        "Are you sure you want to delete this client? This action cannot be undone.",
       )
     ) {
       deleteMutation.mutate();
@@ -123,7 +123,9 @@ export default function ClientDetailPage(): JSX.Element {
   if (isError || !client) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900">Client not found</h2>
+        <h2 className="text-xl font-semibold text-gray-900">
+          Client not found
+        </h2>
         <p className="mt-2 text-gray-500">
           The client you&apos;re looking for doesn&apos;t exist or has been
           deleted.
@@ -362,8 +364,7 @@ export default function ClientDetailPage(): JSX.Element {
                     {invoices.map((invoice) => {
                       const invoiceNumber =
                         invoice.invoice_number || invoice.invoiceNumber;
-                      const issueDate =
-                        invoice.issue_date || invoice.issueDate;
+                      const issueDate = invoice.issue_date || invoice.issueDate;
                       const balanceDue =
                         invoice.balance_due ?? invoice.balanceDue;
 
@@ -383,7 +384,9 @@ export default function ClientDetailPage(): JSX.Element {
                               : "-"}
                           </td>
                           <td>
-                            <span className={getStatusBadgeClass(invoice.status)}>
+                            <span
+                              className={getStatusBadgeClass(invoice.status)}
+                            >
                               {invoice.status.charAt(0).toUpperCase() +
                                 invoice.status.slice(1)}
                             </span>

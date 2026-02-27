@@ -1,10 +1,10 @@
-import { useState, FormEvent } from "react";
+import React, { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { FiMail, FiLock, FiLogIn } from "react-icons/fi";
 
-export default function Login(): JSX.Element {
+export default function Login(): React.JSX.Element {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);

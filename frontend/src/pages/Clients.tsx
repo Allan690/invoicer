@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import React, { useState, FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsAPI } from "../services/api";
@@ -28,7 +28,7 @@ const formatCurrency = (
   }).format(Number(amount) || 0);
 };
 
-export default function Clients(): JSX.Element {
+export default function Clients(): React.JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 

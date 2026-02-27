@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import React, { useState, ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -28,7 +28,7 @@ interface NavItemComponentProps {
   mobile?: boolean;
 }
 
-export default function Layout({ children }: LayoutProps): JSX.Element {
+export default function Layout({ children }: LayoutProps): React.JSX.Element {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function Layout({ children }: LayoutProps): JSX.Element {
   const NavItemComponent = ({
     item,
     mobile = false,
-  }: NavItemComponentProps): JSX.Element => (
+  }: NavItemComponentProps): React.JSX.Element => (
     <NavLink
       to={item.href}
       onClick={() => mobile && setSidebarOpen(false)}

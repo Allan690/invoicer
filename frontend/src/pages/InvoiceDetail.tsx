@@ -1,4 +1,4 @@
-import { useState, useRef, FormEvent } from "react";
+import React, { useState, useRef, FormEvent } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoicesAPI } from "../services/api";
@@ -65,7 +65,7 @@ function AddPaymentModal({
   onClose,
   invoice,
   onSubmit,
-}: AddPaymentModalProps): JSX.Element | null {
+}: AddPaymentModalProps): React.JSX.Element | null {
   const balanceValue = invoice?.balance_due ?? invoice?.balanceDue ?? "";
   const [amount, setAmount] = useState<string>(String(balanceValue));
   const today = new Date().toISOString().split("T")[0] ?? "";
@@ -197,7 +197,7 @@ function AddPaymentModal({
   );
 }
 
-export default function InvoiceDetail(): JSX.Element {
+export default function InvoiceDetail(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

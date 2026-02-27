@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -62,7 +62,7 @@ interface PasswordErrors {
 }
 
 // Profile Tab Component
-function ProfileTab(): JSX.Element {
+function ProfileTab(): React.JSX.Element {
   const { updateUser } = useAuth();
   const queryClient = useQueryClient();
 
@@ -309,7 +309,7 @@ function ProfileTab(): JSX.Element {
 }
 
 // Invoice Settings Tab Component
-function InvoiceSettingsTab(): JSX.Element {
+function InvoiceSettingsTab(): React.JSX.Element {
   const queryClient = useQueryClient();
 
   const { data: settings, isLoading } = useQuery({
@@ -461,7 +461,7 @@ function InvoiceSettingsTab(): JSX.Element {
 }
 
 // Password Tab Component
-function PasswordTab(): JSX.Element {
+function PasswordTab(): React.JSX.Element {
   const [formData, setFormData] = useState<PasswordFormData>({
     currentPassword: "",
     newPassword: "",
@@ -611,7 +611,7 @@ function PasswordTab(): JSX.Element {
 }
 
 // Main Settings Page Component
-export default function Settings(): JSX.Element {
+export default function Settings(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>("profile");
 
   const tabs = [

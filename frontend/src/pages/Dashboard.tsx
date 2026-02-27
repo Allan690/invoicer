@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { dashboardAPI } from "../services/api";
@@ -65,7 +66,7 @@ interface StatusBadgeProps {
   status: string;
 }
 
-const StatusBadge = ({ status }: StatusBadgeProps): JSX.Element => {
+const StatusBadge = ({ status }: StatusBadgeProps): React.JSX.Element => {
   const statusClasses: Record<string, string> = {
     draft: "badge-gray",
     sent: "badge-blue",
@@ -99,7 +100,7 @@ const StatCard = ({
   trend,
   trendValue,
   color = "primary",
-}: StatCardProps): JSX.Element => {
+}: StatCardProps): React.JSX.Element => {
   const colorClasses: Record<string, string> = {
     primary: "bg-primary-100 text-primary-600",
     green: "bg-green-100 text-green-600",
@@ -135,7 +136,9 @@ interface RecentInvoiceRowProps {
   invoice: Invoice;
 }
 
-const RecentInvoiceRow = ({ invoice }: RecentInvoiceRowProps): JSX.Element => {
+const RecentInvoiceRow = ({
+  invoice,
+}: RecentInvoiceRowProps): React.JSX.Element => {
   const invoiceNumber = invoice.invoice_number || invoice.invoiceNumber;
   const clientName = invoice.client_name || invoice.clientName;
   const clientCompany = invoice.client_company || invoice.clientCompany;
@@ -169,7 +172,9 @@ interface SimpleBarChartProps {
   data: MonthlyRevenueData[];
 }
 
-const SimpleBarChart = ({ data }: SimpleBarChartProps): JSX.Element | null => {
+const SimpleBarChart = ({
+  data,
+}: SimpleBarChartProps): React.JSX.Element | null => {
   if (!data || data.length === 0) return null;
 
   const maxValue = Math.max(...data.map((d) => d.revenue), 1);
@@ -193,7 +198,7 @@ const SimpleBarChart = ({ data }: SimpleBarChartProps): JSX.Element | null => {
   );
 };
 
-export default function Dashboard(): JSX.Element {
+export default function Dashboard(): React.JSX.Element {
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard", "stats"],

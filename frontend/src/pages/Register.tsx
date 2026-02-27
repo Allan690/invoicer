@@ -1,4 +1,4 @@
-import { useState, FormEvent, ChangeEvent } from "react";
+import React, { useState, FormEvent, ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -26,7 +26,7 @@ interface FormErrors {
   confirmPassword?: string;
 }
 
-export default function Register(): JSX.Element {
+export default function Register(): React.JSX.Element {
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -288,7 +288,9 @@ export default function Register(): JSX.Element {
                   </button>
                 </div>
                 {errors.confirmPassword && (
-                  <p className="input-error-message">{errors.confirmPassword}</p>
+                  <p className="input-error-message">
+                    {errors.confirmPassword}
+                  </p>
                 )}
               </div>
 

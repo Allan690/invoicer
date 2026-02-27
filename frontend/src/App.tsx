@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -18,7 +18,7 @@ interface RouteWrapperProps {
 }
 
 // Protected route wrapper
-function ProtectedRoute({ children }: RouteWrapperProps): JSX.Element {
+function ProtectedRoute({ children }: RouteWrapperProps): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -37,7 +37,7 @@ function ProtectedRoute({ children }: RouteWrapperProps): JSX.Element {
 }
 
 // Public route wrapper (redirects to dashboard if authenticated)
-function PublicRoute({ children }: RouteWrapperProps): JSX.Element {
+function PublicRoute({ children }: RouteWrapperProps): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -55,7 +55,7 @@ function PublicRoute({ children }: RouteWrapperProps): JSX.Element {
   return <>{children}</>;
 }
 
-export default function App(): JSX.Element {
+export default function App(): React.JSX.Element {
   return (
     <Routes>
       {/* Public routes */}

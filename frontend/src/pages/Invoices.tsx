@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import React, { useState, FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoicesAPI } from "../services/api";
@@ -58,7 +58,7 @@ const formatCurrency = (
   }).format(Number(amount) || 0);
 };
 
-export default function Invoices(): JSX.Element {
+export default function Invoices(): React.JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
