@@ -74,12 +74,12 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           echo -e "Host ${{ secrets.SERVER_HOST }}\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null" >> ~/.ssh/config
 
-      - name: Sync compose file to server
+      - name: Copy compose file to server
         run: |
-          rsync -az \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            docker-compose.prod.yml \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/invoicer/
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/invoicer"
+          cat docker-compose.prod.yml | ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "cat > ~/invoicer/docker-compose.prod.yml"
 
       - name: Write .env.prod on server
         env:
