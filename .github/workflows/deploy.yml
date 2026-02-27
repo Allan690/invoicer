@@ -76,6 +76,9 @@ jobs:
           Host ${{ secrets.SERVER_HOST }}
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
+            ConnectTimeout 15
+            ServerAliveInterval 10
+            ServerAliveCountMax 3
             ControlMaster auto
             ControlPath ~/.ssh/control-%r@%h:%p
             ControlPersist 5m
