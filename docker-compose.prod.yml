@@ -17,9 +17,7 @@ services:
       - invoicer-internal
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX}/invoicer-backend:latest
     restart: always
     environment:
       NODE_ENV: production
@@ -34,9 +32,7 @@ services:
       - invoicer-internal
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ${IMAGE_PREFIX}/invoicer-frontend:latest
     restart: always
     depends_on:
       - backend
