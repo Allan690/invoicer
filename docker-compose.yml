@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: invoicer-db
+    environment:
+      POSTGRES_USER: invoicer
+      POSTGRES_PASSWORD: invoicer_secret
+      POSTGRES_DB: invoicer_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invoicer -d invoicer_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - invoicer-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: invoicer-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://invoicer:invoicer_secret@db:5432/invoicer_db
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - invoicer-network
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: invoicer-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - invoicer-network
+
+volumes:
+  postgres_data:
+
+networks:
+  invoicer-network:
+    driver: bridge
