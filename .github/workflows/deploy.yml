@@ -72,16 +72,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo -e "Host ${{ secrets.SERVER_HOST }}\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+          cat >> ~/.ssh/config <<EOF
+          Host ${{ secrets.SERVER_HOST }}
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ControlMaster auto
+            ControlPath ~/.ssh/control-%r@%h:%p
+            ControlPersist 5m
+          EOF
+          ssh -i ~/.ssh/deploy_key -Nf ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
 
-      - name: Copy compose file to server
-        run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/invoicer"
-          cat docker-compose.prod.yml | ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "cat > ~/invoicer/docker-compose.prod.yml"
-
-      - name: Write .env.prod on server
+      - name: Deploy
         env:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
@@ -89,22 +90,19 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           IMAGE_PREFIX: ${{ needs.build.outputs.image_prefix }}
-        run: |
-          printf "POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\nDATABASE_URL=%s\nJWT_SECRET=%s\nIMAGE_PREFIX=%s\n" \
-            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$DATABASE_URL" "$JWT_SECRET" "$IMAGE_PREFIX" \
-            | ssh -i ~/.ssh/deploy_key \
-                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-                "cat > ~/invoicer/.env.prod"
-
-      - name: Pull images and deploy
-        env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
-          IMAGE_PREFIX: ${{ needs.build.outputs.image_prefix }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "echo '$GHCR_TOKEN' | docker login ghcr.io -u $GHCR_USER --password-stdin && \
-             cd ~/invoicer && \
-             docker-compose -f docker-compose.prod.yml --env-file .env.prod pull && \
-             docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d"
+          COMPOSE_B64=$(base64 -w0 docker-compose.prod.yml)
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s <<ENDSSH
+            set -e
+            mkdir -p ~/invoicer
+            echo "$COMPOSE_B64" | base64 -d > ~/invoicer/docker-compose.prod.yml
+            printf "POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\nDATABASE_URL=%s\nJWT_SECRET=%s\nIMAGE_PREFIX=%s\n" \
+              "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$DATABASE_URL" "$JWT_SECRET" "$IMAGE_PREFIX" \
+              > ~/invoicer/.env.prod
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            cd ~/invoicer
+            docker-compose -f docker-compose.prod.yml --env-file .env.prod pull
+            docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+          ENDSSH
