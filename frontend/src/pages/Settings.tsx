@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
+import { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { settingsAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 import {
   FiUser,
-  FiMail,
   FiBriefcase,
   FiMapPin,
   FiPhone,
@@ -14,72 +13,126 @@ import {
   FiLock,
   FiSave,
   FiHash,
-} from 'react-icons/fi';
+} from "react-icons/fi";
+import {
+  ProfileSettings,
+  InvoiceSettings,
+  User,
+  AxiosErrorResponse,
+} from "../types";
 
 const CURRENCIES = [
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
-  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: "GBP", symbol: "£", name: "British Pound" },
+  { code: "USD", symbol: "$", name: "US Dollar" },
+  { code: "EUR", symbol: "€", name: "Euro" },
+  { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
 ];
 
+// Form data types
+interface ProfileFormData {
+  fullName: string;
+  businessName: string;
+  address: string;
+  phone: string;
+  defaultCurrency: string;
+  taxNumber: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankSortCode: string;
+}
+
+interface InvoiceSettingsFormData {
+  prefix: string;
+  padding: number;
+}
+
+interface PasswordFormData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+interface PasswordErrors {
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+  [key: string]: string | undefined;
+}
+
 // Profile Tab Component
-function ProfileTab() {
+function ProfileTab(): JSX.Element {
   const { updateUser } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['settings', 'profile'],
+    queryKey: ["settings", "profile"],
     queryFn: async () => {
       const response = await settingsAPI.getProfile();
       return response.data;
     },
   });
 
-  const [formData, setFormData] = useState({});
-  const [isDirty, setIsDirty] = useState(false);
+  const [formData, setFormData] = useState<ProfileFormData>({
+    fullName: "",
+    businessName: "",
+    address: "",
+    phone: "",
+    defaultCurrency: "GBP",
+    taxNumber: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankSortCode: "",
+  });
+  const [isDirty, setIsDirty] = useState<boolean>(false);
 
   // Update form data when profile loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
+      const p = profile as ProfileSettings;
       setFormData({
-        fullName: profile.fullName || '',
-        businessName: profile.businessName || '',
-        address: profile.address || '',
-        phone: profile.phone || '',
-        defaultCurrency: profile.defaultCurrency || 'GBP',
-        taxNumber: profile.taxNumber || '',
-        bankName: profile.bankName || '',
-        bankAccountNumber: profile.bankAccountNumber || '',
-        bankSortCode: profile.bankSortCode || '',
+        fullName: p.fullName || p.full_name || "",
+        businessName: p.businessName || p.business_name || "",
+        address: p.address || "",
+        phone: p.phone || "",
+        defaultCurrency: p.defaultCurrency || p.default_currency || "GBP",
+        taxNumber: p.taxNumber || p.tax_number || "",
+        bankName: p.bankName || p.bank_name || "",
+        bankAccountNumber: p.bankAccountNumber || p.bank_account_number || "",
+        bankSortCode: p.bankSortCode || p.bank_sort_code || "",
       });
     }
   }, [profile]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => settingsAPI.updateProfile(data),
+    mutationFn: (data: Partial<ProfileSettings>) =>
+      settingsAPI.updateProfile(data),
     onSuccess: (response) => {
-      queryClient.invalidateQueries(['settings', 'profile']);
-      updateUser(response.data.user);
-      toast.success('Profile updated successfully');
+      queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
+      const responseData = response.data as ProfileSettings & { user?: User };
+      if (responseData.user) {
+        updateUser(responseData.user);
+      }
+      toast.success("Profile updated successfully");
       setIsDirty(false);
     },
     onError: () => {
-      toast.error('Failed to update profile');
+      toast.error("Failed to update profile");
     },
   });
 
-  const handleChange = (e) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setIsDirty(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    updateMutation.mutate(formData);
+    updateMutation.mutate(formData as unknown as Partial<ProfileSettings>);
   };
 
   if (isLoading) {
@@ -89,18 +142,6 @@ function ProfileTab() {
       </div>
     );
   }
-
-  const currentData = {
-    fullName: formData.fullName ?? profile?.fullName ?? '',
-    businessName: formData.businessName ?? profile?.businessName ?? '',
-    address: formData.address ?? profile?.address ?? '',
-    phone: formData.phone ?? profile?.phone ?? '',
-    defaultCurrency: formData.defaultCurrency ?? profile?.defaultCurrency ?? 'GBP',
-    taxNumber: formData.taxNumber ?? profile?.taxNumber ?? '',
-    bankName: formData.bankName ?? profile?.bankName ?? '',
-    bankAccountNumber: formData.bankAccountNumber ?? profile?.bankAccountNumber ?? '',
-    bankSortCode: formData.bankSortCode ?? profile?.bankSortCode ?? '',
-  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -118,7 +159,7 @@ function ProfileTab() {
             <input
               type="text"
               name="fullName"
-              value={currentData.fullName}
+              value={formData.fullName}
               onChange={handleChange}
               className="input"
               placeholder="Your full name"
@@ -132,7 +173,7 @@ function ProfileTab() {
             <input
               type="text"
               name="businessName"
-              value={currentData.businessName}
+              value={formData.businessName}
               onChange={handleChange}
               className="input"
               placeholder="Your business name (optional)"
@@ -145,7 +186,7 @@ function ProfileTab() {
             </label>
             <textarea
               name="address"
-              value={currentData.address}
+              value={formData.address}
               onChange={handleChange}
               className="input"
               rows={3}
@@ -160,7 +201,7 @@ function ProfileTab() {
             <input
               type="tel"
               name="phone"
-              value={currentData.phone}
+              value={formData.phone}
               onChange={handleChange}
               className="input"
               placeholder="+1 234 567 8900"
@@ -173,7 +214,7 @@ function ProfileTab() {
             </label>
             <select
               name="defaultCurrency"
-              value={currentData.defaultCurrency}
+              value={formData.defaultCurrency}
               onChange={handleChange}
               className="input"
             >
@@ -189,7 +230,7 @@ function ProfileTab() {
             <input
               type="text"
               name="taxNumber"
-              value={currentData.taxNumber}
+              value={formData.taxNumber}
               onChange={handleChange}
               className="input"
               placeholder="Your tax ID"
@@ -212,7 +253,7 @@ function ProfileTab() {
             <input
               type="text"
               name="bankName"
-              value={currentData.bankName}
+              value={formData.bankName}
               onChange={handleChange}
               className="input"
               placeholder="Your bank name"
@@ -223,7 +264,7 @@ function ProfileTab() {
             <input
               type="text"
               name="bankAccountNumber"
-              value={currentData.bankAccountNumber}
+              value={formData.bankAccountNumber}
               onChange={handleChange}
               className="input"
               placeholder="12345678"
@@ -234,7 +275,7 @@ function ProfileTab() {
             <input
               type="text"
               name="bankSortCode"
-              value={currentData.bankSortCode}
+              value={formData.bankSortCode}
               onChange={handleChange}
               className="input"
               placeholder="12-34-56"
@@ -268,41 +309,61 @@ function ProfileTab() {
 }
 
 // Invoice Settings Tab Component
-function InvoiceSettingsTab() {
+function InvoiceSettingsTab(): JSX.Element {
   const queryClient = useQueryClient();
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ['settings', 'invoice'],
+    queryKey: ["settings", "invoice"],
     queryFn: async () => {
       const response = await settingsAPI.getInvoiceSettings();
       return response.data;
     },
   });
 
-  const [formData, setFormData] = useState({});
-  const [isDirty, setIsDirty] = useState(false);
+  const [formData, setFormData] = useState<InvoiceSettingsFormData>({
+    prefix: "INV",
+    padding: 4,
+  });
+  const [isDirty, setIsDirty] = useState<boolean>(false);
+
+  // Update form data when settings load
+  useEffect(() => {
+    if (settings) {
+      const s = settings as InvoiceSettings;
+      setFormData({
+        prefix: s.prefix || s.invoicePrefix || s.invoice_prefix || "INV",
+        padding: s.padding || 4,
+      });
+    }
+  }, [settings]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => settingsAPI.updateInvoiceSettings(data),
+    mutationFn: (data: Partial<InvoiceSettings>) =>
+      settingsAPI.updateInvoiceSettings(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['settings', 'invoice']);
-      toast.success('Invoice settings updated');
+      queryClient.invalidateQueries({ queryKey: ["settings", "invoice"] });
+      toast.success("Invoice settings updated");
       setIsDirty(false);
     },
     onError: () => {
-      toast.error('Failed to update settings');
+      toast.error("Failed to update settings");
     },
   });
 
-  const handleChange = (e) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ): void => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "padding" ? Number(value) : value,
+    }));
     setIsDirty(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    updateMutation.mutate(formData);
+    updateMutation.mutate(formData as unknown as Partial<InvoiceSettings>);
   };
 
   if (isLoading) {
@@ -313,14 +374,11 @@ function InvoiceSettingsTab() {
     );
   }
 
-  const currentData = {
-    prefix: formData.prefix ?? settings?.prefix ?? 'INV',
-    padding: formData.padding ?? settings?.padding ?? 4,
-  };
-
+  const s = settings as InvoiceSettings | undefined;
+  const nextNumber =
+    s?.nextNumber || s?.invoiceNextNumber || s?.invoice_next_number || 1;
   const previewNumber =
-    currentData.prefix +
-    String(settings?.nextNumber || 1).padStart(Number(currentData.padding) || 4, '0');
+    formData.prefix + String(nextNumber).padStart(formData.padding, "0");
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -341,7 +399,7 @@ function InvoiceSettingsTab() {
               <input
                 type="text"
                 name="prefix"
-                value={currentData.prefix}
+                value={formData.prefix}
                 onChange={handleChange}
                 className="input"
                 maxLength={20}
@@ -353,7 +411,7 @@ function InvoiceSettingsTab() {
               <label className="label">Number Padding</label>
               <select
                 name="padding"
-                value={currentData.padding}
+                value={formData.padding}
                 onChange={handleChange}
                 className="input"
               >
@@ -363,12 +421,16 @@ function InvoiceSettingsTab() {
                   </option>
                 ))}
               </select>
-              <p className="input-hint">Number of digits (with leading zeros)</p>
+              <p className="input-hint">
+                Number of digits (with leading zeros)
+              </p>
             </div>
           </div>
 
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-500 mb-1">Preview of next invoice number:</p>
+            <p className="text-sm text-gray-500 mb-1">
+              Preview of next invoice number:
+            </p>
             <p className="text-2xl font-bold text-gray-900">{previewNumber}</p>
           </div>
         </div>
@@ -399,59 +461,60 @@ function InvoiceSettingsTab() {
 }
 
 // Password Tab Component
-function PasswordTab() {
-  const [formData, setFormData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+function PasswordTab(): JSX.Element {
+  const [formData, setFormData] = useState<PasswordFormData>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<PasswordErrors>({});
 
   const updateMutation = useMutation({
-    mutationFn: (data) => settingsAPI.changePassword(data),
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      settingsAPI.changePassword(data),
     onSuccess: () => {
-      toast.success('Password changed successfully');
+      toast.success("Password changed successfully");
       setFormData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to change password');
+    onError: (error: AxiosErrorResponse) => {
+      toast.error(error.response?.data?.error || "Failed to change password");
     },
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): boolean => {
+    const newErrors: PasswordErrors = {};
 
     if (!formData.currentPassword) {
-      newErrors.currentPassword = 'Current password is required';
+      newErrors.currentPassword = "Current password is required";
     }
 
     if (!formData.newPassword) {
-      newErrors.newPassword = 'New password is required';
+      newErrors.newPassword = "New password is required";
     } else if (formData.newPassword.length < 6) {
-      newErrors.newPassword = 'Password must be at least 6 characters';
+      newErrors.newPassword = "Password must be at least 6 characters";
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (validateForm()) {
       updateMutation.mutate({
@@ -481,7 +544,7 @@ function PasswordTab() {
               name="currentPassword"
               value={formData.currentPassword}
               onChange={handleChange}
-              className={`input ${errors.currentPassword ? 'input-error' : ''}`}
+              className={`input ${errors.currentPassword ? "input-error" : ""}`}
               placeholder="Enter current password"
             />
             {errors.currentPassword && (
@@ -496,7 +559,7 @@ function PasswordTab() {
               name="newPassword"
               value={formData.newPassword}
               onChange={handleChange}
-              className={`input ${errors.newPassword ? 'input-error' : ''}`}
+              className={`input ${errors.newPassword ? "input-error" : ""}`}
               placeholder="Enter new password"
             />
             {errors.newPassword ? (
@@ -513,7 +576,7 @@ function PasswordTab() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className={`input ${errors.confirmPassword ? 'input-error' : ''}`}
+              className={`input ${errors.confirmPassword ? "input-error" : ""}`}
               placeholder="Confirm new password"
             />
             {errors.confirmPassword && (
@@ -548,13 +611,13 @@ function PasswordTab() {
 }
 
 // Main Settings Page Component
-export default function Settings() {
-  const [activeTab, setActiveTab] = useState('profile');
+export default function Settings(): JSX.Element {
+  const [activeTab, setActiveTab] = useState<string>("profile");
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: FiUser },
-    { id: 'invoice', label: 'Invoice Settings', icon: FiFileText },
-    { id: 'password', label: 'Password', icon: FiLock },
+    { id: "profile", label: "Profile", icon: FiUser },
+    { id: "invoice", label: "Invoice Settings", icon: FiFileText },
+    { id: "password", label: "Password", icon: FiLock },
   ];
 
   return (
@@ -572,7 +635,7 @@ export default function Settings() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`tab flex items-center gap-2 whitespace-nowrap ${
-              activeTab === tab.id ? 'tab-active' : ''
+              activeTab === tab.id ? "tab-active" : ""
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -583,9 +646,9 @@ export default function Settings() {
 
       {/* Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === 'profile' && <ProfileTab />}
-        {activeTab === 'invoice' && <InvoiceSettingsTab />}
-        {activeTab === 'password' && <PasswordTab />}
+        {activeTab === "profile" && <ProfileTab />}
+        {activeTab === "invoice" && <InvoiceSettingsTab />}
+        {activeTab === "password" && <PasswordTab />}
       </div>
     </div>
   );

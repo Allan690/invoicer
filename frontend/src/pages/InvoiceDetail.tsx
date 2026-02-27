@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, FormEvent } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoicesAPI } from "../services/api";
@@ -15,23 +15,32 @@ import {
   FiCopy,
   FiPrinter,
   FiDownload,
-  FiPlus,
   FiMoreVertical,
   FiDollarSign,
   FiX,
 } from "react-icons/fi";
+import {
+  Invoice,
+  InvoiceStatus,
+  PaymentFormData,
+  Payment,
+  AxiosErrorResponse,
+} from "../types";
 
 // Currency formatter
-const formatCurrency = (amount, currency = "GBP") => {
+const formatCurrency = (
+  amount: number | string | undefined,
+  currency = "GBP",
+): string => {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: currency,
-  }).format(amount || 0);
+  }).format(Number(amount) || 0);
 };
 
 // Status badge classes
-const getStatusBadgeClass = (status) => {
-  const classes = {
+const getStatusBadgeClass = (status: InvoiceStatus | string): string => {
+  const classes: Record<string, string> = {
     draft: "status-draft",
     sent: "status-sent",
     viewed: "status-viewed",
@@ -42,37 +51,52 @@ const getStatusBadgeClass = (status) => {
   return classes[status] || "badge-gray";
 };
 
+// Add Payment Modal Props
+interface AddPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  invoice: Invoice | undefined;
+  onSubmit: (data: PaymentFormData) => Promise<void>;
+}
+
 // Add Payment Modal
-function AddPaymentModal({ isOpen, onClose, invoice, onSubmit }) {
-  const [amount, setAmount] = useState(invoice?.balance_due || "");
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+function AddPaymentModal({
+  isOpen,
+  onClose,
+  invoice,
+  onSubmit,
+}: AddPaymentModalProps): JSX.Element | null {
+  const balanceValue = invoice?.balance_due ?? invoice?.balanceDue ?? "";
+  const [amount, setAmount] = useState<string>(String(balanceValue));
+  const today = new Date().toISOString().split("T")[0] ?? "";
+  const [paymentDate, setPaymentDate] = useState<string>(today);
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [reference, setReference] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
       await onSubmit({
         amount: parseFloat(amount),
         payment_date: paymentDate,
-        payment_method: paymentMethod,
+        payment_method: paymentMethod as PaymentFormData["payment_method"],
         reference,
         notes,
       });
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const balanceDue = invoice?.balance_due ?? invoice?.balanceDue;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -100,8 +124,7 @@ function AddPaymentModal({ isOpen, onClose, invoice, onSubmit }) {
                 required
               />
               <p className="input-hint">
-                Balance due:{" "}
-                {formatCurrency(invoice?.balance_due, invoice?.currency)}
+                Balance due: {formatCurrency(balanceDue, invoice?.currency)}
               </p>
             </div>
             <div className="input-group">
@@ -174,15 +197,15 @@ function AddPaymentModal({ isOpen, onClose, invoice, onSubmit }) {
   );
 }
 
-export default function InvoiceDetail() {
-  const { id } = useParams();
+export default function InvoiceDetail(): JSX.Element {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const printRef = useRef(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [showMenu, setShowMenu] = useState<boolean>(false);
 
   // Fetch invoice
   const {
@@ -192,104 +215,121 @@ export default function InvoiceDetail() {
   } = useQuery({
     queryKey: ["invoice", id],
     queryFn: async () => {
+      if (!id) throw new Error("Invoice ID is required");
       const response = await invoicesAPI.getById(id);
       return response.data;
     },
+    enabled: !!id,
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: (data) => invoicesAPI.updateStatus(id, data),
+    mutationFn: (data: { status: InvoiceStatus }) => {
+      if (!id) throw new Error("Invoice ID is required");
+      return invoicesAPI.updateStatus(id, data);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["invoice", id]);
-      queryClient.invalidateQueries(["invoices"]);
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Invoice status updated");
     },
-    onError: (error) => {
+    onError: (error: AxiosErrorResponse) => {
       toast.error(error.response?.data?.error || "Failed to update status");
     },
   });
 
   const addPaymentMutation = useMutation({
-    mutationFn: (data) => invoicesAPI.addPayment(id, data),
+    mutationFn: (data: PaymentFormData) => {
+      if (!id) throw new Error("Invoice ID is required");
+      return invoicesAPI.addPayment(id, data);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["invoice", id]);
-      queryClient.invalidateQueries(["invoices"]);
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Payment recorded");
     },
-    onError: (error) => {
+    onError: (error: AxiosErrorResponse) => {
       toast.error(error.response?.data?.error || "Failed to record payment");
     },
   });
 
   const deletePaymentMutation = useMutation({
-    mutationFn: (paymentId) => invoicesAPI.deletePayment(id, paymentId),
+    mutationFn: (paymentId: number) => {
+      if (!id) throw new Error("Invoice ID is required");
+      return invoicesAPI.deletePayment(id, paymentId);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["invoice", id]);
-      queryClient.invalidateQueries(["invoices"]);
+      queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Payment deleted");
     },
-    onError: (error) => {
+    onError: (error: AxiosErrorResponse) => {
       toast.error(error.response?.data?.error || "Failed to delete payment");
     },
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: () => invoicesAPI.duplicate(id),
+    mutationFn: () => {
+      if (!id) throw new Error("Invoice ID is required");
+      return invoicesAPI.duplicate(id);
+    },
     onSuccess: (response) => {
-      queryClient.invalidateQueries(["invoices"]);
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Invoice duplicated");
       navigate(`/invoices/${response.data.id}/edit`);
     },
-    onError: (error) => {
+    onError: (error: AxiosErrorResponse) => {
       toast.error(error.response?.data?.error || "Failed to duplicate invoice");
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => invoicesAPI.delete(id),
+    mutationFn: () => {
+      if (!id) throw new Error("Invoice ID is required");
+      return invoicesAPI.delete(id);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["invoices"]);
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Invoice deleted");
       navigate("/invoices");
     },
-    onError: (error) => {
+    onError: (error: AxiosErrorResponse) => {
       toast.error(error.response?.data?.error || "Failed to delete invoice");
     },
   });
 
-  const handleMarkAsSent = () => {
+  const handleMarkAsSent = (): void => {
     updateStatusMutation.mutate({ status: "sent" });
     setShowMenu(false);
   };
 
-  const handleMarkAsPaid = () => {
+  const handleMarkAsPaid = (): void => {
     updateStatusMutation.mutate({ status: "paid" });
     setShowMenu(false);
   };
 
-  const handleDuplicate = () => {
+  const handleDuplicate = (): void => {
     duplicateMutation.mutate();
     setShowMenu(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = (): void => {
     if (window.confirm("Are you sure you want to delete this invoice?")) {
       deleteMutation.mutate();
     }
     setShowMenu(false);
   };
 
-  const handleAddPayment = (data) => {
-    return addPaymentMutation.mutateAsync(data);
+  const handleAddPayment = async (data: PaymentFormData): Promise<void> => {
+    await addPaymentMutation.mutateAsync(data);
   };
 
-  const handleDeletePayment = (paymentId) => {
+  const handleDeletePayment = (paymentId: number): void => {
     if (window.confirm("Are you sure you want to delete this payment?")) {
       deletePaymentMutation.mutate(paymentId);
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = (): void => {
     // Close the menu first
     setShowMenu(false);
 
@@ -299,7 +339,7 @@ export default function InvoiceDetail() {
     }, 100);
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (): Promise<void> => {
     setShowMenu(false);
 
     // Dynamic import of html2canvas and jspdf for PDF generation
@@ -307,7 +347,8 @@ export default function InvoiceDetail() {
       toast.loading("Generating PDF...", { id: "pdf-generation" });
 
       // Try to dynamically import the PDF libraries
-      let html2canvas, jsPDF;
+      let html2canvas: typeof import("html2canvas").default;
+      let jsPDF: typeof import("jspdf").default;
       try {
         const [html2canvasModule, jspdfModule] = await Promise.all([
           import("html2canvas"),
@@ -315,7 +356,7 @@ export default function InvoiceDetail() {
         ]);
         html2canvas = html2canvasModule.default;
         jsPDF = jspdfModule.default;
-      } catch (importError) {
+      } catch {
         // Libraries not installed - fall back to print
         toast.dismiss("pdf-generation");
         toast(
@@ -361,7 +402,10 @@ export default function InvoiceDetail() {
         imgWidth * ratio,
         imgHeight * ratio,
       );
-      pdf.save(`${invoice.invoice_number}.pdf`);
+
+      const invoiceNumber =
+        invoice?.invoice_number || invoice?.invoiceNumber || "invoice";
+      pdf.save(`${invoiceNumber}.pdf`);
 
       toast.success("PDF downloaded!", { id: "pdf-generation" });
     } catch (error) {
@@ -387,7 +431,8 @@ export default function InvoiceDetail() {
           Invoice not found
         </h2>
         <p className="mt-2 text-gray-500">
-          The invoice you're looking for doesn't exist or has been deleted.
+          The invoice you&apos;re looking for doesn&apos;t exist or has been
+          deleted.
         </p>
         <Link
           to="/invoices"
@@ -401,6 +446,7 @@ export default function InvoiceDetail() {
   }
 
   const canEdit = !["paid", "cancelled"].includes(invoice.status);
+  const createdAt = invoice.created_at || invoice.createdAt;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -416,7 +462,7 @@ export default function InvoiceDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900">
-                {invoice.invoice_number}
+                {invoice.invoice_number || invoice.invoiceNumber}
               </h1>
               <span className={getStatusBadgeClass(invoice.status)}>
                 {invoice.status.charAt(0).toUpperCase() +
@@ -424,7 +470,10 @@ export default function InvoiceDetail() {
               </span>
             </div>
             <p className="text-sm text-gray-500">
-              Created {format(new Date(invoice.created_at), "MMM d, yyyy")}
+              Created{" "}
+              {createdAt
+                ? format(new Date(createdAt), "MMM d, yyyy")
+                : "Unknown"}
             </p>
           </div>
         </div>
@@ -546,30 +595,39 @@ export default function InvoiceDetail() {
                 </tr>
               </thead>
               <tbody>
-                {invoice.payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>
-                      {format(new Date(payment.payment_date), "MMM d, yyyy")}
-                    </td>
-                    <td className="capitalize">
-                      {payment.payment_method?.replace("_", " ") || "-"}
-                    </td>
-                    <td>{payment.reference || "-"}</td>
-                    <td className="text-gray-500">{payment.notes || "-"}</td>
-                    <td className="text-right font-medium text-green-600">
-                      {formatCurrency(payment.amount, invoice.currency)}
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleDeletePayment(payment.id)}
-                        className="p-1 text-gray-400 hover:text-red-600"
-                        title="Delete payment"
-                      >
-                        <FiTrash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {invoice.payments.map((payment: Payment) => {
+                  const paymentDate =
+                    payment.payment_date || payment.paymentDate;
+                  const paymentMethod =
+                    payment.payment_method || payment.paymentMethod;
+
+                  return (
+                    <tr key={payment.id}>
+                      <td>
+                        {paymentDate
+                          ? format(new Date(paymentDate), "MMM d, yyyy")
+                          : "-"}
+                      </td>
+                      <td className="capitalize">
+                        {paymentMethod?.replace("_", " ") || "-"}
+                      </td>
+                      <td>{payment.reference || "-"}</td>
+                      <td className="text-gray-500">{payment.notes || "-"}</td>
+                      <td className="text-right font-medium text-green-600">
+                        {formatCurrency(payment.amount, invoice.currency)}
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => handleDeletePayment(payment.id)}
+                          className="p-1 text-gray-400 hover:text-red-600"
+                          title="Delete payment"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,62 +1,84 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
-import { FiUser, FiMail, FiLock, FiBriefcase, FiEye, FiEyeOff } from 'react-icons/fi';
+import { useState, FormEvent, ChangeEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+import {
+  FiUser,
+  FiMail,
+  FiLock,
+  FiBriefcase,
+  FiEye,
+  FiEyeOff,
+} from "react-icons/fi";
 
-export default function Register() {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    businessName: '',
+interface FormData {
+  fullName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  businessName: string;
+}
+
+interface FormErrors {
+  fullName?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
+export default function Register(): JSX.Element {
+  const [formData, setFormData] = useState<FormData>({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    businessName: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
 
     if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
+      newErrors.fullName = "Full name is required";
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = "Invalid email format";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+    if (errors[name as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -74,13 +96,14 @@ export default function Register() {
       });
 
       if (result.success) {
-        toast.success('Account created successfully!');
-        navigate('/dashboard');
+        toast.success("Account created successfully!");
+        navigate("/dashboard");
       } else {
-        toast.error(result.error);
+        toast.error(result.error || "Registration failed");
       }
     } catch (error) {
-      toast.error('Registration failed. Please try again.');
+      toast.error("Registration failed. Please try again.");
+      console.error("Registration error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +129,9 @@ export default function Register() {
               />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            Create your account
+          </h2>
           <p className="mt-2 text-sm text-gray-600">
             Start creating professional invoices in minutes
           </p>
@@ -131,7 +156,7 @@ export default function Register() {
                     type="text"
                     autoComplete="name"
                     required
-                    className={`input pl-10 ${errors.fullName ? 'input-error' : ''}`}
+                    className={`input pl-10 ${errors.fullName ? "input-error" : ""}`}
                     placeholder="John Doe"
                     value={formData.fullName}
                     onChange={handleChange}
@@ -157,7 +182,7 @@ export default function Register() {
                     type="email"
                     autoComplete="email"
                     required
-                    className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+                    className={`input pl-10 ${errors.email ? "input-error" : ""}`}
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={handleChange}
@@ -171,7 +196,8 @@ export default function Register() {
               {/* Business Name (Optional) */}
               <div className="input-group">
                 <label htmlFor="businessName" className="label">
-                  Business Name <span className="text-gray-400">(Optional)</span>
+                  Business Name{" "}
+                  <span className="text-gray-400">(Optional)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -202,10 +228,10 @@ export default function Register() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     required
-                    className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+                    className={`input pl-10 pr-10 ${errors.password ? "input-error" : ""}`}
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={handleChange}
@@ -241,10 +267,10 @@ export default function Register() {
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     autoComplete="new-password"
                     required
-                    className={`input pl-10 pr-10 ${errors.confirmPassword ? 'input-error' : ''}`}
+                    className={`input pl-10 pr-10 ${errors.confirmPassword ? "input-error" : ""}`}
                     placeholder="••••••••"
                     value={formData.confirmPassword}
                     onChange={handleChange}
@@ -269,12 +295,18 @@ export default function Register() {
               {/* Terms */}
               <div className="flex items-start">
                 <div className="text-sm text-gray-600">
-                  By creating an account, you agree to our{' '}
-                  <a href="#" className="text-primary-600 hover:text-primary-700 font-medium">
+                  By creating an account, you agree to our{" "}
+                  <a
+                    href="#"
+                    className="text-primary-600 hover:text-primary-700 font-medium"
+                  >
                     Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-primary-600 hover:text-primary-700 font-medium">
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="#"
+                    className="text-primary-600 hover:text-primary-700 font-medium"
+                  >
                     Privacy Policy
                   </a>
                 </div>
@@ -311,7 +343,7 @@ export default function Register() {
                     Creating account...
                   </span>
                 ) : (
-                  'Create account'
+                  "Create account"
                 )}
               </button>
             </form>
@@ -320,7 +352,7 @@ export default function Register() {
 
         {/* Sign in link */}
         <p className="mt-6 text-center text-sm text-gray-600">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <Link
             to="/login"
             className="font-medium text-primary-600 hover:text-primary-700"

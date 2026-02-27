@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clientsAPI } from '../services/api';
-import toast from 'react-hot-toast';
+import { useState, FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clientsAPI } from "../services/api";
+import toast from "react-hot-toast";
 import {
   FiPlus,
   FiSearch,
@@ -14,50 +14,58 @@ import {
   FiPhone,
   FiUsers,
   FiFileText,
-} from 'react-icons/fi';
+} from "react-icons/fi";
+import { ClientsResponse, AxiosErrorResponse } from "../types";
 
 // Currency formatter
-const formatCurrency = (amount, currency = 'GBP') => {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
+const formatCurrency = (
+  amount: number | string | undefined,
+  currency = "GBP",
+): string => {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
     currency,
-  }).format(amount || 0);
+  }).format(Number(amount) || 0);
 };
 
-export default function Clients() {
+export default function Clients(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   // Fetch clients
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['clients', { search }],
+    queryKey: ["clients", { search }],
     queryFn: () => clientsAPI.getAll({ search: search || undefined }),
-    select: (response) => response.data,
+    select: (response) => response.data as unknown as ClientsResponse,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id) => clientsAPI.delete(id),
+    mutationFn: (id: number) => clientsAPI.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
-      toast.success('Client deleted');
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client deleted");
     },
-    onError: (error) => {
-      const message = error.response?.data?.error || 'Failed to delete client';
+    onError: (error: AxiosErrorResponse) => {
+      const message = error.response?.data?.error || "Failed to delete client";
       toast.error(message);
     },
   });
 
-  const handleSearch = (e) => {
+  const handleSearch = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     setSearchParams(search ? { search } : {});
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this client? This cannot be undone.')) {
+  const handleDelete = (id: number): void => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this client? This cannot be undone.",
+      )
+    ) {
       deleteMutation.mutate(id);
     }
     setOpenMenuId(null);
@@ -71,9 +79,7 @@ export default function Clients() {
       <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="page-title">Clients</h1>
-          <p className="page-subtitle">
-            Manage your client directory
-          </p>
+          <p className="page-subtitle">Manage your client directory</p>
         </div>
         <Link to="/clients/new" className="btn-primary flex items-center gap-2">
           <FiPlus className="w-4 h-4" />
@@ -116,11 +122,14 @@ export default function Clients() {
             <h3 className="empty-state-title">No clients found</h3>
             <p className="empty-state-description">
               {search
-                ? 'Try adjusting your search terms'
-                : 'Get started by adding your first client'}
+                ? "Try adjusting your search terms"
+                : "Get started by adding your first client"}
             </p>
             {!search && (
-              <Link to="/clients/new" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <Link
+                to="/clients/new"
+                className="btn-primary mt-4 inline-flex items-center gap-2"
+              >
                 <FiPlus className="w-4 h-4" />
                 Add Client
               </Link>
@@ -141,12 +150,18 @@ export default function Clients() {
                       {client.company_name || client.name}
                     </Link>
                     {client.company_name && (
-                      <p className="text-sm text-gray-500 truncate">{client.name}</p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {client.name}
+                      </p>
                     )}
                   </div>
                   <div className="relative ml-2">
                     <button
-                      onClick={() => setOpenMenuId(openMenuId === client.id ? null : client.id)}
+                      onClick={() =>
+                        setOpenMenuId(
+                          openMenuId === client.id ? null : client.id,
+                        )
+                      }
                       className="p-1 rounded-lg hover:bg-gray-100"
                     >
                       <FiMoreVertical className="w-5 h-5 text-gray-400" />
@@ -212,7 +227,10 @@ export default function Clients() {
                   {client.phone && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <FiPhone className="w-4 h-4 text-gray-400" />
-                      <a href={`tel:${client.phone}`} className="hover:text-primary-600">
+                      <a
+                        href={`tel:${client.phone}`}
+                        className="hover:text-primary-600"
+                      >
                         {client.phone}
                       </a>
                     </div>
@@ -222,7 +240,9 @@ export default function Clients() {
                 <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500">Invoices</p>
-                    <p className="font-semibold text-gray-900">{client.invoice_count || 0}</p>
+                    <p className="font-semibold text-gray-900">
+                      {client.invoice_count || 0}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-500">Total Billed</p>
@@ -232,16 +252,17 @@ export default function Clients() {
                   </div>
                 </div>
 
-                {parseFloat(client.total_outstanding) > 0 && (
-                  <div className="mt-3 p-2 bg-yellow-50 rounded-lg">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-yellow-700">Outstanding</span>
-                      <span className="font-semibold text-yellow-800">
-                        {formatCurrency(client.total_outstanding)}
-                      </span>
+                {client.total_outstanding &&
+                  parseFloat(String(client.total_outstanding)) > 0 && (
+                    <div className="mt-3 p-2 bg-yellow-50 rounded-lg">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-yellow-700">Outstanding</span>
+                        <span className="font-semibold text-yellow-800">
+                          {formatCurrency(client.total_outstanding)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           ))}

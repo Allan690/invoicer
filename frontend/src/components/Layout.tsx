@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -13,25 +13,43 @@ import {
   FiChevronDown,
 } from "react-icons/fi";
 
-export default function Layout({ children }) {
+interface LayoutProps {
+  children: ReactNode;
+}
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavItemComponentProps {
+  item: NavItem;
+  mobile?: boolean;
+}
+
+export default function Layout({ children }: LayoutProps): JSX.Element {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     await logout();
     navigate("/login");
   };
 
-  const navigation = [
+  const navigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: FiHome },
     { name: "Invoices", href: "/invoices", icon: FiFileText },
     { name: "Clients", href: "/clients", icon: FiUsers },
     { name: "Settings", href: "/settings", icon: FiSettings },
   ];
 
-  const NavItem = ({ item, mobile = false }) => (
+  const NavItemComponent = ({
+    item,
+    mobile = false,
+  }: NavItemComponentProps): JSX.Element => (
     <NavLink
       to={item.href}
       onClick={() => mobile && setSidebarOpen(false)}
@@ -80,7 +98,7 @@ export default function Layout({ children }) {
         </div>
         <nav className="mt-4 space-y-1">
           {navigation.map((item) => (
-            <NavItem key={item.name} item={item} mobile />
+            <NavItemComponent key={item.name} item={item} mobile />
           ))}
         </nav>
       </div>
@@ -112,7 +130,7 @@ export default function Layout({ children }) {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
-              <NavItem key={item.name} item={item} />
+              <NavItemComponent key={item.name} item={item} />
             ))}
           </nav>
 

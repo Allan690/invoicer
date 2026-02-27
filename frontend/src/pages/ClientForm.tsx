@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clientsAPI } from '../services/api';
-import toast from 'react-hot-toast';
+import { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clientsAPI } from "../services/api";
+import toast from "react-hot-toast";
 import {
   FiArrowLeft,
   FiSave,
@@ -12,99 +12,122 @@ import {
   FiMapPin,
   FiBriefcase,
   FiFileText,
-} from 'react-icons/fi';
+} from "react-icons/fi";
+import { Client, ClientFormData } from "../types";
 
-export default function ClientForm() {
-  const { id } = useParams();
+interface FormData {
+  name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  address: string;
+  tax_number: string;
+  notes: string;
+}
+
+interface FormErrors {
+  name?: string;
+  email?: string;
+}
+
+interface ExistingClient extends Client {
+  company_name?: string;
+  tax_number?: string;
+}
+
+export default function ClientForm(): JSX.Element {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEditing = Boolean(id);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    address: '',
-    tax_number: '',
-    notes: '',
+  const [formData, setFormData] = useState<FormData>({
+    name: "",
+    email: "",
+    phone: "",
+    company_name: "",
+    address: "",
+    tax_number: "",
+    notes: "",
   });
 
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // Fetch existing client if editing
   const { data: existingClient, isLoading: isLoadingClient } = useQuery({
-    queryKey: ['client', id],
-    queryFn: () => clientsAPI.getById(id),
+    queryKey: ["client", id],
+    queryFn: () => clientsAPI.getById(id!),
     enabled: isEditing,
-    select: (response) => response.data,
+    select: (response) => response.data as ExistingClient,
   });
 
   // Populate form when editing
   useEffect(() => {
     if (existingClient) {
       setFormData({
-        name: existingClient.name || '',
-        email: existingClient.email || '',
-        phone: existingClient.phone || '',
-        company_name: existingClient.company_name || '',
-        address: existingClient.address || '',
-        tax_number: existingClient.tax_number || '',
-        notes: existingClient.notes || '',
+        name: existingClient.name || "",
+        email: existingClient.email || "",
+        phone: existingClient.phone || "",
+        company_name: existingClient.company_name || "",
+        address: existingClient.address || "",
+        tax_number: existingClient.tax_number || "",
+        notes: existingClient.notes || "",
       });
     }
   }, [existingClient]);
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data) => clientsAPI.create(data),
+    mutationFn: (data: ClientFormData) => clientsAPI.create(data),
     onSuccess: (response) => {
-      queryClient.invalidateQueries(['clients']);
-      toast.success('Client created successfully');
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client created successfully");
       navigate(`/clients/${response.data.id}`);
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create client');
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || "Failed to create client");
     },
   });
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => clientsAPI.update(id, data),
+    mutationFn: (data: Partial<ClientFormData>) => clientsAPI.update(id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
-      queryClient.invalidateQueries(['client', id]);
-      toast.success('Client updated successfully');
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client", id] });
+      toast.success("Client updated successfully");
       navigate(`/clients/${id}`);
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to update client');
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || "Failed to update client");
     },
   });
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   // Handle form field changes
-  const handleChange = (e) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Clear error on change
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
+    if (errors[name as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   // Validate form
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Client name is required';
+      newErrors.name = "Client name is required";
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = "Invalid email format";
     }
 
     setErrors(newErrors);
@@ -112,22 +135,21 @@ export default function ClientForm() {
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fix the errors before submitting');
+      toast.error("Please fix the errors before submitting");
       return;
     }
 
-    const data = {
-      ...formData,
-      email: formData.email || null,
-      phone: formData.phone || null,
-      company_name: formData.company_name || null,
-      address: formData.address || null,
-      tax_number: formData.tax_number || null,
-      notes: formData.notes || null,
+    const data: ClientFormData = {
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      company_name: formData.company_name || undefined,
+      address: formData.address || undefined,
+      notes: formData.notes || undefined,
     };
 
     if (isEditing) {
@@ -150,14 +172,14 @@ export default function ClientForm() {
       {/* Header */}
       <div className="page-header flex items-center gap-4 mb-6">
         <Link
-          to={isEditing ? `/clients/${id}` : '/clients'}
+          to={isEditing ? `/clients/${id}` : "/clients"}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <FiArrowLeft className="w-5 h-5" />
         </Link>
         <div>
           <h1 className="page-title">
-            {isEditing ? 'Edit Client' : 'Add New Client'}
+            {isEditing ? "Edit Client" : "Add New Client"}
           </h1>
           {isEditing && existingClient && (
             <p className="page-subtitle">
@@ -189,7 +211,7 @@ export default function ClientForm() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`input pl-10 ${errors.name ? 'input-error' : ''}`}
+                  className={`input pl-10 ${errors.name ? "input-error" : ""}`}
                   placeholder="John Doe"
                 />
               </div>
@@ -234,7 +256,7 @@ export default function ClientForm() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+                  className={`input pl-10 ${errors.email ? "input-error" : ""}`}
                   placeholder="john@example.com"
                 />
               </div>
@@ -338,7 +360,7 @@ export default function ClientForm() {
         {/* Actions */}
         <div className="flex items-center justify-end gap-4">
           <Link
-            to={isEditing ? `/clients/${id}` : '/clients'}
+            to={isEditing ? `/clients/${id}` : "/clients"}
             className="btn-secondary"
           >
             Cancel
@@ -351,12 +373,12 @@ export default function ClientForm() {
             {isSubmitting ? (
               <>
                 <div className="spinner spinner-sm"></div>
-                {isEditing ? 'Updating...' : 'Creating...'}
+                {isEditing ? "Updating..." : "Creating..."}
               </>
             ) : (
               <>
                 <FiSave className="w-4 h-4" />
-                {isEditing ? 'Update Client' : 'Create Client'}
+                {isEditing ? "Update Client" : "Create Client"}
               </>
             )}
           </button>

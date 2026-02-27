@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { ReactNode } from "react";
 import { useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -12,8 +13,12 @@ import ClientDetail from "./pages/ClientDetail";
 import ClientForm from "./pages/ClientForm";
 import Settings from "./pages/Settings";
 
+interface RouteWrapperProps {
+  children: ReactNode;
+}
+
 // Protected route wrapper
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: RouteWrapperProps): JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -32,7 +37,7 @@ function ProtectedRoute({ children }) {
 }
 
 // Public route wrapper (redirects to dashboard if authenticated)
-function PublicRoute({ children }) {
+function PublicRoute({ children }: RouteWrapperProps): JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -47,10 +52,10 @@ function PublicRoute({ children }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 }
 
-export default function App() {
+export default function App(): JSX.Element {
   return (
     <Routes>
       {/* Public routes */}

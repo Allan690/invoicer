@@ -1,21 +1,21 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
-import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
+import { useState, FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+import { FiMail, FiLock, FiLogIn } from "react-icons/fi";
 
-export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function Login(): JSX.Element {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!email || !password) {
-      toast.error('Please fill in all fields');
+      toast.error("Please fill in all fields");
       return;
     }
 
@@ -25,14 +25,14 @@ export default function Login() {
       const result = await login(email, password);
 
       if (result.success) {
-        toast.success('Welcome back!');
-        navigate('/dashboard');
+        toast.success("Welcome back!");
+        navigate("/dashboard");
       } else {
-        toast.error(result.error || 'Login failed');
+        toast.error(result.error || "Login failed");
       }
     } catch (error) {
-      toast.error('An unexpected error occurred');
-      console.error('Login error:', error);
+      toast.error("An unexpected error occurred");
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +165,7 @@ export default function Login() {
 
         {/* Register Link */}
         <p className="mt-6 text-center text-sm text-gray-600">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{" "}
           <Link
             to="/register"
             className="font-medium text-primary-600 hover:text-primary-500"

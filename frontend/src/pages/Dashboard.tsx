@@ -1,52 +1,111 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { dashboardAPI } from '../services/api';
-import { format } from 'date-fns';
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { dashboardAPI } from "../services/api";
+import { format } from "date-fns";
 import {
   FiDollarSign,
   FiClock,
   FiAlertCircle,
   FiUsers,
-  FiTrendingUp,
   FiFileText,
   FiArrowRight,
   FiPlus,
-} from 'react-icons/fi';
+} from "react-icons/fi";
+import { Invoice } from "../types";
 
 // Currency formatter
-const formatCurrency = (amount, currency = 'GBP') => {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
+const formatCurrency = (
+  amount: number | string | undefined,
+  currency = "GBP",
+): string => {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
     currency: currency,
-  }).format(amount);
+  }).format(Number(amount) || 0);
 };
 
+// Types for dashboard data
+interface DashboardStats {
+  totalRevenue: number;
+  totalOutstanding: number;
+  totalOverdue: number;
+  clientCount: number;
+  overdueCount: number;
+  monthRevenue: number;
+  yearRevenue: number;
+  invoicesByStatus: Record<string, { count: number; totalAmount: number }>;
+  recentInvoices: Invoice[];
+}
+
+interface MonthlyRevenueData {
+  month: number;
+  monthName: string;
+  revenue: number;
+}
+
+interface MonthlyRevenueResponse {
+  year: number;
+  data: MonthlyRevenueData[];
+  totals: {
+    revenue: number;
+  };
+}
+
+interface OverdueInvoice extends Invoice {
+  daysOverdue: number;
+  balanceDue: number;
+}
+
+interface OverdueData {
+  invoices: OverdueInvoice[];
+}
+
 // Status badge component
-const StatusBadge = ({ status }) => {
-  const statusClasses = {
-    draft: 'badge-gray',
-    sent: 'badge-blue',
-    viewed: 'badge-purple',
-    paid: 'badge-green',
-    overdue: 'badge-red',
-    cancelled: 'badge-gray',
+interface StatusBadgeProps {
+  status: string;
+}
+
+const StatusBadge = ({ status }: StatusBadgeProps): JSX.Element => {
+  const statusClasses: Record<string, string> = {
+    draft: "badge-gray",
+    sent: "badge-blue",
+    viewed: "badge-purple",
+    paid: "badge-green",
+    overdue: "badge-red",
+    cancelled: "badge-gray",
   };
 
   return (
-    <span className={`badge ${statusClasses[status] || 'badge-gray'}`}>
+    <span className={`badge ${statusClasses[status] || "badge-gray"}`}>
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 };
 
 // Stat Card Component
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primary' }) => {
-  const colorClasses = {
-    primary: 'bg-primary-100 text-primary-600',
-    green: 'bg-green-100 text-green-600',
-    yellow: 'bg-yellow-100 text-yellow-600',
-    red: 'bg-red-100 text-red-600',
-    blue: 'bg-blue-100 text-blue-600',
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string }>;
+  trend?: "up" | "down";
+  trendValue?: string;
+  color?: "primary" | "green" | "yellow" | "red" | "blue";
+}
+
+const StatCard = ({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  trendValue,
+  color = "primary",
+}: StatCardProps): JSX.Element => {
+  const colorClasses: Record<string, string> = {
+    primary: "bg-primary-100 text-primary-600",
+    green: "bg-green-100 text-green-600",
+    yellow: "bg-yellow-100 text-yellow-600",
+    red: "bg-red-100 text-red-600",
+    blue: "bg-blue-100 text-blue-600",
   };
 
   return (
@@ -56,8 +115,10 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primar
           <p className="text-sm font-medium text-gray-500">{title}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
           {trend && (
-            <p className={`mt-1 text-sm ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-              {trend === 'up' ? '↑' : '↓'} {trendValue}
+            <p
+              className={`mt-1 text-sm ${trend === "up" ? "text-green-600" : "text-red-600"}`}
+            >
+              {trend === "up" ? "↑" : "↓"} {trendValue}
             </p>
           )}
         </div>
@@ -70,7 +131,15 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primar
 };
 
 // Recent Invoice Row Component
-const RecentInvoiceRow = ({ invoice }) => {
+interface RecentInvoiceRowProps {
+  invoice: Invoice;
+}
+
+const RecentInvoiceRow = ({ invoice }: RecentInvoiceRowProps): JSX.Element => {
+  const invoiceNumber = invoice.invoice_number || invoice.invoiceNumber;
+  const clientName = invoice.client_name || invoice.clientName;
+  const clientCompany = invoice.client_company || invoice.clientCompany;
+
   return (
     <Link
       to={`/invoices/${invoice.id}`}
@@ -81,8 +150,8 @@ const RecentInvoiceRow = ({ invoice }) => {
           <FiFileText className="w-5 h-5 text-gray-600" />
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-900">{invoice.invoice_number}</p>
-          <p className="text-xs text-gray-500">{invoice.client_name || invoice.client_company}</p>
+          <p className="text-sm font-medium text-gray-900">{invoiceNumber}</p>
+          <p className="text-xs text-gray-500">{clientName || clientCompany}</p>
         </div>
       </div>
       <div className="text-right">
@@ -96,10 +165,14 @@ const RecentInvoiceRow = ({ invoice }) => {
 };
 
 // Simple Bar Chart Component
-const SimpleBarChart = ({ data }) => {
+interface SimpleBarChartProps {
+  data: MonthlyRevenueData[];
+}
+
+const SimpleBarChart = ({ data }: SimpleBarChartProps): JSX.Element | null => {
   if (!data || data.length === 0) return null;
 
-  const maxValue = Math.max(...data.map(d => d.revenue), 1);
+  const maxValue = Math.max(...data.map((d) => d.revenue), 1);
 
   return (
     <div className="flex items-end justify-between gap-2 h-40">
@@ -109,7 +182,7 @@ const SimpleBarChart = ({ data }) => {
             className="w-full bg-primary-500 rounded-t-sm transition-all duration-300 hover:bg-primary-600"
             style={{
               height: `${Math.max((item.revenue / maxValue) * 100, 2)}%`,
-              minHeight: item.revenue > 0 ? '8px' : '2px',
+              minHeight: item.revenue > 0 ? "8px" : "2px",
             }}
             title={`${item.monthName}: ${formatCurrency(item.revenue)}`}
           />
@@ -120,31 +193,31 @@ const SimpleBarChart = ({ data }) => {
   );
 };
 
-export default function Dashboard() {
+export default function Dashboard(): JSX.Element {
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard', 'stats'],
+    queryKey: ["dashboard", "stats"],
     queryFn: async () => {
       const response = await dashboardAPI.getStats();
-      return response.data;
+      return response.data as unknown as DashboardStats;
     },
   });
 
   // Fetch monthly revenue
   const { data: monthlyRevenue, isLoading: revenueLoading } = useQuery({
-    queryKey: ['dashboard', 'monthly-revenue'],
+    queryKey: ["dashboard", "monthly-revenue"],
     queryFn: async () => {
       const response = await dashboardAPI.getMonthlyRevenue();
-      return response.data;
+      return response.data as unknown as MonthlyRevenueResponse;
     },
   });
 
   // Fetch overdue invoices
   const { data: overdueData } = useQuery({
-    queryKey: ['dashboard', 'overdue'],
+    queryKey: ["dashboard", "overdue"],
     queryFn: async () => {
       const response = await dashboardAPI.getOverdue();
-      return response.data;
+      return { invoices: response.data } as OverdueData;
     },
   });
 
@@ -176,10 +249,13 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Welcome back! Here's an overview of your business.
+            Welcome back! Here&apos;s an overview of your business.
           </p>
         </div>
-        <Link to="/invoices/new" className="btn-primary flex items-center gap-2">
+        <Link
+          to="/invoices/new"
+          className="btn-primary flex items-center gap-2"
+        >
           <FiPlus className="w-4 h-4" />
           New Invoice
         </Link>
@@ -214,13 +290,13 @@ export default function Dashboard() {
       </div>
 
       {/* Overdue Warning */}
-      {stats?.overdueCount > 0 && (
+      {stats?.overdueCount && stats.overdueCount > 0 && (
         <div className="alert-warning flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FiAlertCircle className="h-5 w-5" />
             <span>
-              You have <strong>{stats.overdueCount}</strong> overdue invoice(s) totaling{' '}
-              <strong>{formatCurrency(stats.totalOverdue)}</strong>
+              You have <strong>{stats.overdueCount}</strong> overdue invoice(s)
+              totaling <strong>{formatCurrency(stats.totalOverdue)}</strong>
             </span>
           </div>
           <Link to="/invoices?status=overdue" className="btn-sm btn-secondary">
@@ -235,9 +311,12 @@ export default function Dashboard() {
         <div className="lg:col-span-2 card">
           <div className="card-header flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Revenue Overview</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Revenue Overview
+              </h2>
               <p className="text-sm text-gray-500">
-                Monthly revenue for {monthlyRevenue?.year || new Date().getFullYear()}
+                Monthly revenue for{" "}
+                {monthlyRevenue?.year || new Date().getFullYear()}
               </p>
             </div>
             <div className="flex items-center gap-2 text-sm">
@@ -278,15 +357,21 @@ export default function Dashboard() {
             </div>
             <div className="divider" />
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700">Invoice Status</h3>
-              {Object.entries(stats?.invoicesByStatus || {}).map(([status, data]) => (
-                <div key={status} className="flex items-center justify-between">
-                  <StatusBadge status={status} />
-                  <span className="text-sm text-gray-600">
-                    {data.count} ({formatCurrency(data.totalAmount)})
-                  </span>
-                </div>
-              ))}
+              <h3 className="text-sm font-medium text-gray-700">
+                Invoice Status
+              </h3>
+              {stats?.invoicesByStatus &&
+                Object.entries(stats.invoicesByStatus).map(([status, data]) => (
+                  <div
+                    key={status}
+                    className="flex items-center justify-between"
+                  >
+                    <StatusBadge status={status} />
+                    <span className="text-sm text-gray-600">
+                      {data.count} ({formatCurrency(data.totalAmount)})
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
@@ -295,7 +380,9 @@ export default function Dashboard() {
       {/* Recent Invoices */}
       <div className="card">
         <div className="card-header flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Invoices</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Recent Invoices
+          </h2>
           <Link
             to="/invoices"
             className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
@@ -305,7 +392,7 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="card-body p-2">
-          {stats?.recentInvoices?.length > 0 ? (
+          {stats?.recentInvoices && stats.recentInvoices.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {stats.recentInvoices.map((invoice) => (
                 <RecentInvoiceRow key={invoice.id} invoice={invoice} />
@@ -328,14 +415,18 @@ export default function Dashboard() {
       </div>
 
       {/* Overdue Invoices Table */}
-      {overdueData?.invoices?.length > 0 && (
+      {overdueData?.invoices && overdueData.invoices.length > 0 && (
         <div className="card">
           <div className="card-header flex items-center justify-between bg-red-50 border-red-100">
             <div className="flex items-center gap-2">
               <FiAlertCircle className="h-5 w-5 text-red-600" />
-              <h2 className="text-lg font-semibold text-red-900">Overdue Invoices</h2>
+              <h2 className="text-lg font-semibold text-red-900">
+                Overdue Invoices
+              </h2>
             </div>
-            <span className="badge badge-red">{overdueData.invoices.length} overdue</span>
+            <span className="badge badge-red">
+              {overdueData.invoices.length} overdue
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="table">
@@ -349,32 +440,41 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {overdueData.invoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td>
-                      <Link
-                        to={`/invoices/${invoice.id}`}
-                        className="font-medium text-primary-600 hover:text-primary-700"
-                      >
-                        {invoice.invoice_number}
-                      </Link>
-                    </td>
-                    <td>{invoice.client_name || invoice.client_company}</td>
-                    <td>
-                      {invoice.due_date
-                        ? format(new Date(invoice.due_date), 'MMM d, yyyy')
-                        : '-'}
-                    </td>
-                    <td>
-                      <span className="text-red-600 font-medium">
-                        {invoice.daysOverdue} days
-                      </span>
-                    </td>
-                    <td className="text-right font-semibold">
-                      {formatCurrency(invoice.balanceDue)}
-                    </td>
-                  </tr>
-                ))}
+                {overdueData.invoices.map((invoice) => {
+                  const invoiceNumber =
+                    invoice.invoice_number || invoice.invoiceNumber;
+                  const clientName = invoice.client_name || invoice.clientName;
+                  const clientCompany =
+                    invoice.client_company || invoice.clientCompany;
+                  const dueDate = invoice.due_date || invoice.dueDate;
+
+                  return (
+                    <tr key={invoice.id}>
+                      <td>
+                        <Link
+                          to={`/invoices/${invoice.id}`}
+                          className="font-medium text-primary-600 hover:text-primary-700"
+                        >
+                          {invoiceNumber}
+                        </Link>
+                      </td>
+                      <td>{clientName || clientCompany}</td>
+                      <td>
+                        {dueDate
+                          ? format(new Date(dueDate), "MMM d, yyyy")
+                          : "-"}
+                      </td>
+                      <td>
+                        <span className="text-red-600 font-medium">
+                          {invoice.daysOverdue} days
+                        </span>
+                      </td>
+                      <td className="text-right font-semibold">
+                        {formatCurrency(invoice.balanceDue)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

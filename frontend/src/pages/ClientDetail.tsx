@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clientsAPI } from '../services/api';
-import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clientsAPI } from "../services/api";
+import toast from "react-hot-toast";
+import { format } from "date-fns";
 import {
   FiArrowLeft,
   FiEdit2,
@@ -15,70 +15,98 @@ import {
   FiPlus,
   FiMoreVertical,
   FiBriefcase,
-} from 'react-icons/fi';
+} from "react-icons/fi";
+import { Invoice, InvoiceStatus } from "../types";
+
+// Extended client type from API
+interface ClientDetail {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  company_name?: string;
+  address?: string;
+  tax_number?: string;
+  notes?: string;
+  invoice_count?: string | number;
+  total_billed?: string | number;
+  total_outstanding?: string | number;
+}
 
 // Currency formatter
-const formatCurrency = (amount, currency = 'GBP') => {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
+const formatCurrency = (
+  amount: number | string | undefined,
+  currency = "GBP"
+): string => {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
     currency: currency,
-  }).format(amount || 0);
+  }).format(Number(amount) || 0);
 };
 
 // Status badge classes
-const getStatusBadgeClass = (status) => {
-  const classes = {
-    draft: 'status-draft',
-    sent: 'status-sent',
-    viewed: 'status-viewed',
-    paid: 'status-paid',
-    overdue: 'status-overdue',
-    cancelled: 'status-cancelled',
+const getStatusBadgeClass = (status: InvoiceStatus | string): string => {
+  const classes: Record<string, string> = {
+    draft: "status-draft",
+    sent: "status-sent",
+    viewed: "status-viewed",
+    paid: "status-paid",
+    overdue: "status-overdue",
+    cancelled: "status-cancelled",
   };
-  return classes[status] || 'badge-gray';
+  return classes[status] || "badge-gray";
 };
 
-export default function ClientDetail() {
-  const { id } = useParams();
+export default function ClientDetailPage(): JSX.Element {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [showMenu, setShowMenu] = useState(false);
 
   // Fetch client details
-  const { data: client, isLoading, isError } = useQuery({
-    queryKey: ['client', id],
+  const {
+    data: client,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["client", id],
     queryFn: async () => {
-      const response = await clientsAPI.getById(id);
-      return response.data;
+      const response = await clientsAPI.getById(id!);
+      return response.data as ClientDetail;
     },
+    enabled: !!id,
   });
 
   // Fetch client invoices
   const { data: invoices } = useQuery({
-    queryKey: ['client-invoices', id],
+    queryKey: ["client-invoices", id],
     queryFn: async () => {
-      const response = await clientsAPI.getInvoices(id);
-      return response.data;
+      const response = await clientsAPI.getInvoices(id!);
+      return response.data as Invoice[];
     },
     enabled: !!id,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: () => clientsAPI.delete(id),
+    mutationFn: () => clientsAPI.delete(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
-      toast.success('Client deleted successfully');
-      navigate('/clients');
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client deleted successfully");
+      navigate("/clients");
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.error || 'Failed to delete client');
+    onError: (error: { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || "Failed to delete client");
     },
   });
 
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+  const handleDelete = (): void => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this client? This action cannot be undone."
+      )
+    ) {
       deleteMutation.mutate();
     }
     setShowMenu(false);
@@ -97,9 +125,13 @@ export default function ClientDetail() {
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900">Client not found</h2>
         <p className="mt-2 text-gray-500">
-          The client you're looking for doesn't exist or has been deleted.
+          The client you&apos;re looking for doesn&apos;t exist or has been
+          deleted.
         </p>
-        <Link to="/clients" className="btn-primary mt-4 inline-flex items-center gap-2">
+        <Link
+          to="/clients"
+          className="btn-primary mt-4 inline-flex items-center gap-2"
+        >
           <FiArrowLeft className="w-4 h-4" />
           Back to Clients
         </Link>
@@ -107,7 +139,7 @@ export default function ClientDetail() {
     );
   }
 
-  const hasInvoices = parseInt(client.invoice_count) > 0;
+  const hasInvoices = parseInt(String(client.invoice_count || 0)) > 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -167,10 +199,12 @@ export default function ClientDetail() {
                     disabled={hasInvoices}
                     className={`dropdown-item flex items-center gap-2 w-full ${
                       hasInvoices
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'dropdown-item-danger'
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "dropdown-item-danger"
                     }`}
-                    title={hasInvoices ? 'Cannot delete client with invoices' : ''}
+                    title={
+                      hasInvoices ? "Cannot delete client with invoices" : ""
+                    }
                   >
                     <FiTrash2 className="w-4 h-4" />
                     Delete Client
@@ -259,7 +293,9 @@ export default function ClientDetail() {
             <div className="card-body space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Total Invoices</span>
-                <span className="font-semibold">{client.invoice_count || 0}</span>
+                <span className="font-semibold">
+                  {client.invoice_count || 0}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Total Billed</span>
@@ -269,9 +305,13 @@ export default function ClientDetail() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Outstanding</span>
-                <span className={`font-semibold ${
-                  parseFloat(client.total_outstanding) > 0 ? 'text-red-600' : 'text-green-600'
-                }`}>
+                <span
+                  className={`font-semibold ${
+                    parseFloat(String(client.total_outstanding || 0)) > 0
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                >
                   {formatCurrency(client.total_outstanding)}
                 </span>
               </div>
@@ -319,38 +359,50 @@ export default function ClientDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.map((invoice) => (
-                      <tr key={invoice.id}>
-                        <td>
-                          <Link
-                            to={`/invoices/${invoice.id}`}
-                            className="font-medium text-primary-600 hover:text-primary-700"
-                          >
-                            {invoice.invoice_number}
-                          </Link>
-                        </td>
-                        <td className="text-gray-500">
-                          {format(new Date(invoice.issue_date), 'MMM d, yyyy')}
-                        </td>
-                        <td>
-                          <span className={getStatusBadgeClass(invoice.status)}>
-                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="text-right font-medium">
-                          {formatCurrency(invoice.total, invoice.currency)}
-                        </td>
-                        <td className="text-right">
-                          {parseFloat(invoice.balance_due) > 0 ? (
-                            <span className="text-red-600 font-medium">
-                              {formatCurrency(invoice.balance_due, invoice.currency)}
+                    {invoices.map((invoice) => {
+                      const invoiceNumber =
+                        invoice.invoice_number || invoice.invoiceNumber;
+                      const issueDate =
+                        invoice.issue_date || invoice.issueDate;
+                      const balanceDue =
+                        invoice.balance_due ?? invoice.balanceDue;
+
+                      return (
+                        <tr key={invoice.id}>
+                          <td>
+                            <Link
+                              to={`/invoices/${invoice.id}`}
+                              className="font-medium text-primary-600 hover:text-primary-700"
+                            >
+                              {invoiceNumber}
+                            </Link>
+                          </td>
+                          <td className="text-gray-500">
+                            {issueDate
+                              ? format(new Date(issueDate), "MMM d, yyyy")
+                              : "-"}
+                          </td>
+                          <td>
+                            <span className={getStatusBadgeClass(invoice.status)}>
+                              {invoice.status.charAt(0).toUpperCase() +
+                                invoice.status.slice(1)}
                             </span>
-                          ) : (
-                            <span className="text-green-600">Paid</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="text-right font-medium">
+                            {formatCurrency(invoice.total, invoice.currency)}
+                          </td>
+                          <td className="text-right">
+                            {parseFloat(String(balanceDue || 0)) > 0 ? (
+                              <span className="text-red-600 font-medium">
+                                {formatCurrency(balanceDue, invoice.currency)}
+                              </span>
+                            ) : (
+                              <span className="text-green-600">Paid</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
