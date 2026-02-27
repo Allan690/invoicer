@@ -1,0 +1,34 @@
+name: Setup Traefik (run once)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Inject ACME email into traefik config
+        run: |
+          sed -i "s/your-email@example.com/${{ secrets.ACME_EMAIL }}/" traefik/traefik.yml
+
+      - name: Sync Traefik config to server
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            traefik/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/traefik/
+
+      - name: Create network and start Traefik
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "docker network create traefik-public 2>/dev/null || true && cd ~/traefik && docker-compose up -d"

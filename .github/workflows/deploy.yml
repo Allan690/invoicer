@@ -1,0 +1,48 @@
+name: Deploy Invoicer
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync files to server
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude='.git' \
+            --exclude='**/node_modules' \
+            --exclude='**/dist' \
+            . ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/invoicer/
+
+      - name: Write .env.prod on server
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          printf "POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\nDATABASE_URL=%s\nJWT_SECRET=%s\n" \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$DATABASE_URL" "$JWT_SECRET" \
+            | ssh -i ~/.ssh/deploy_key \
+                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+                "cat > ~/invoicer/.env.prod"
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ~/invoicer && docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d --build"

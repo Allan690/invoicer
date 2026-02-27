@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - invoicer-internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: https://invoicer.hushdev.xyz
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - invoicer-internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - invoicer-internal
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.invoicer.rule=Host(`invoicer.hushdev.xyz`)"
+      - "traefik.http.routers.invoicer.entrypoints=websecure"
+      - "traefik.http.routers.invoicer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.invoicer.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+
+volumes:
+  postgres_data:
+
+networks:
+  invoicer-internal:
+    driver: bridge
+  traefik-public:
+    external: true
