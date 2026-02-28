@@ -41,4 +41,4 @@ COPY --from=builder /app/drizzle ./drizzle
 EXPOSE 3000
 
 # Start the application
-CMD ["pnpm", "start"]
+CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]
